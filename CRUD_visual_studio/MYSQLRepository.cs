@@ -1,113 +1,74 @@
-﻿    using System;
-    using System.Collections.Generic;
-    using Microsoft.Extensions.Configuration;
-    using MySql.Data.MySqlClient;
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.Extensions.Configuration;
+using MySql.Data.MySqlClient;
 
-    namespace CRUD_visual_studio
+namespace CRUD_visual_studio
+{
+    public class MYSQLRepository
     {
-        class PersonModel
+        private string ConnectionString { get; set; }
+
+        public MYSQLRepository()
         {
-            public int PersonId { get; set; }
-            public string Name { get; set; }
-            public int Age { get; set; }    
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                .AddEnvironmentVariables()
+                .Build();
+            ConnectionString = configuration.GetSection("ConnectionStrings:DefaultConnection").Value;
         }
 
-        public class MYSQLRepository
+        public void Create(string name, int age)
         {
-            private string _connectionString { get; set; }
-
-            public MYSQLRepository()
+            using MySqlConnection connection = new(ConnectionString);
+            try
             {
-                IConfiguration configuration = new ConfigurationBuilder()
-                    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                    .AddEnvironmentVariables()
-                    .Build();
-                _connectionString = configuration.GetSection("ConnectionStrings:DefaultConnection").Value;
+                connection.Open();
+                MySqlTransaction mySqlTransaction = connection.BeginTransaction();
+
+                string SQL = "INSERT INTO person VALUES (null, @name, @age)";
+                MySqlCommand mySqlCommand = new(SQL, connection);
+
+                mySqlCommand.Parameters.AddWithValue("@name", name);
+                mySqlCommand.Parameters.AddWithValue("@age", age);
+                mySqlCommand.ExecuteNonQuery();
+                mySqlTransaction.Commit();
+                mySqlTransaction.Dispose();
             }
-
-            private void Create(String name, int age)
+            catch (MySqlException ex)
             {
-                MySqlTransaction mySqlTransaction = null;
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+            }
+        }
 
-                using MySqlConnection connection = new MySqlConnection(_connectionString);
+        public List<PersonModel> Read()
+        {
+            List<PersonModel> personModels = new();
+
+            using (MySqlConnection connection = new(ConnectionString))
+            {
                 try
                 {
                     connection.Open();
 
-                    string SQL = "INSERT INTO person VALUES (null, @name, @age)";
-                    MySqlCommand mySqlCommand = new MySqlCommand(SQL, connection);
+                    string SQL = "SELECT * FROM person";
+                    MySqlCommand mySqlCommand = new(SQL, connection);
 
-                    mySqlCommand.Parameters.AddWithValue("@name", name);
-                    mySqlCommand.Parameters.AddWithValue("@age", age);
-                    mySqlCommand.ExecuteNonQuery();
-                    mySqlTransaction.Commit();
-                    mySqlTransaction.Dispose();
-                }
-                catch (MySqlException ex)
-                {
-                    System.Diagnostics.Debug.WriteLine(ex.Message);
-                }
-            }
-
-            private List<PersonModel> Read()
-            {
-                List<PersonModel> personModels = new();
-                MySqlTransaction mySqlTransaction = null;
-
-                using (MySqlConnection connection = new MySqlConnection(_connectionString))
-                {
-                    try
+                    using (var reader = mySqlCommand.ExecuteReader())
                     {
-                        connection.Open();
-
-                        string SQL = "SELECT * FROM person";
-                        MySqlCommand mySqlCommand = new MySqlCommand(SQL, connection);
-
-                        using (var reader = mySqlCommand.ExecuteReader())
+                        while (reader.Read())
                         {
-                            while (reader.Read())
+                            personModels.Add(new PersonModel()
                             {
-                                personModels.Add(new PersonModel()
-                                {
-                                    Name = reader["name"].ToString(),
-                                    Age = Convert.ToInt32(reader["age"]),
-                                    PersonId = Convert.ToInt32(reader["personId"])
-                                });
-                            }
-
+                                Name = reader["name"].ToString(),
+                                Age = Convert.ToInt32(reader["age"]),
+                                PersonId = Convert.ToInt32(reader["personId"])
+                            });
                         }
 
-                        mySqlCommand.ExecuteNonQuery();
-                        mySqlTransaction.Commit();
-                        mySqlTransaction.Dispose();
                     }
-                    catch (MySqlException ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine(ex.Message);
-                    }
-                }
 
-                return personModels;
-            }
-
-            private void Update(String name, int age, int personId)
-            {
-                MySqlTransaction mySqlTransaction = null;
-
-                using MySqlConnection connection = new MySqlConnection(_connectionString);
-                try
-                {
-                    connection.Open();
-
-                    string SQL = "UPDATE person SET name=@name, age=@age WHERE personId=@personId";
-                    MySqlCommand mySqlCommand = new MySqlCommand(SQL, connection);
-
-                    mySqlCommand.Parameters.AddWithValue("@personId", personId);
-                    mySqlCommand.Parameters.AddWithValue("@name", name);
-                    mySqlCommand.Parameters.AddWithValue("@age", age);
                     mySqlCommand.ExecuteNonQuery();
-                    mySqlTransaction.Commit();
-                    mySqlTransaction.Dispose();
                 }
                 catch (MySqlException ex)
                 {
@@ -115,27 +76,53 @@
                 }
             }
 
-            private void Delete(int personId)
+            return personModels;
+        }
+
+        public void Update(string name, int age, int personId)
+        {
+            using MySqlConnection connection = new(ConnectionString);
+            try
             {
-                MySqlTransaction mySqlTransaction = null;
+                connection.Open();
+                MySqlTransaction mySqlTransaction = connection.BeginTransaction();
 
-                using MySqlConnection connection = new MySqlConnection(_connectionString);
-                try
-                {
-                    connection.Open();
+                string SQL = "UPDATE person SET name=@name, age=@age WHERE personId=@personId";
+                MySqlCommand mySqlCommand = new(SQL, connection);
 
-                    string SQL = "DELETE FROM person WHERE personId = @personId";
-                    MySqlCommand mySqlCommand = new MySqlCommand(SQL, connection);
+                mySqlCommand.Parameters.AddWithValue("@personId", personId);
+                mySqlCommand.Parameters.AddWithValue("@name", name);
+                mySqlCommand.Parameters.AddWithValue("@age", age);
+                mySqlCommand.ExecuteNonQuery();
+                mySqlTransaction.Commit();
+                mySqlTransaction.Dispose();
+            }
+            catch (MySqlException ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+            }
+        }
 
-                    mySqlCommand.Parameters.AddWithValue("@personId", personId);
-                    mySqlCommand.ExecuteNonQuery();
-                    mySqlTransaction.Commit();
-                    mySqlTransaction.Dispose();
-                } 
-                catch (MySqlException ex)
-                {
-                    System.Diagnostics.Debug.WriteLine(ex.Message);
-                }
+        public void Delete(int personId)
+        {
+            using MySqlConnection connection = new(ConnectionString);
+            try
+            {
+                connection.Open();
+                MySqlTransaction mySqlTransaction = connection.BeginTransaction();
+
+                string SQL = "DELETE FROM person WHERE personId = @personId";
+                MySqlCommand mySqlCommand = new(SQL, connection);
+
+                mySqlCommand.Parameters.AddWithValue("@personId", personId);
+                mySqlCommand.ExecuteNonQuery();
+                mySqlTransaction.Commit();
+                mySqlTransaction.Dispose();
+            }
+            catch (MySqlException ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
             }
         }
     }
+}
