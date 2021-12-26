@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using CRUD_visual_studio.Models;
@@ -20,6 +16,12 @@ namespace CRUD_visual_studio.Controllers
 
         public IActionResult Index()
         {
+            return View();
+        }
+
+        public IActionResult ListPerson(string notification)
+        {
+            ViewBag.notification = notification;
             return View();
         }
 

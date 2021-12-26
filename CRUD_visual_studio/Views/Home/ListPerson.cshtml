@@ -1,0 +1,139 @@
+﻿@page
+@inject Microsoft.Extensions.Configuration.IConfiguration configuration
+@{
+    var connectionString = configuration.GetSection("ConnectionStrings:DefaultConnection").Value;
+
+    List<PersonModel> personModels = new();
+    string error = "";
+    string notification = ViewBag.notification ?? "";
+
+    try
+    {
+        MYSQLRepository mYSQLRepository = new();
+        personModels = mYSQLRepository.Read();
+    }
+    catch (Exception ex)
+    {
+        error = ex.Message;
+    }
+}
+
+@if (error.Length > 0)
+{
+    <div>@error</div>
+}
+
+@if (notification.Length > 0)
+{
+    <div class="alert alert-info">@notification</div>
+}
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>
+                <button type="button" class="btn btn-primary" onclick="refreshMe()">Refresh</button>
+            </th>
+            <th>
+                <input type="text" id="name" placeholder="Name" class="form-control" />
+            </th>
+            <th>
+                <input type="text" id="age" placeholder="age" class="form-control" />
+            </th>
+            <th>
+                <button type="button" class="btn btn-primary" onclick="createRecord()">Create</button>
+            </th>
+        </tr>
+        <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Age</th>
+            <th>Command</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in personModels)
+        {
+            <tr>
+                <td scope="row">@item.PersonId</td>
+                <td scope="row">
+                    <input type="text" id="@item.PersonId-name" placeholder="Name" value="@item.Name" class="form-control" />
+                </td>
+                <td scope="row">
+                    <input type="text" id="@item.PersonId-age" placeholder="Name" value="@item.Age" class="form-control" />
+                <td>
+                    <button class="btn btn-warning" onclick="updateRecord(@item.PersonId)">Update</button>
+                    <button class="btn btn-danger" onclick="deleteRecord(@item.PersonId)">Delete</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+<script>
+    var url = "https://localhost:5001/api/values";
+    var home = "@Url.RouteUrl(ViewContext.RouteData.Values)"
+
+    function refreshMe() {
+        window.location.href = home;
+    }
+
+    function createRecord() {
+        $.ajax({
+            type: "post",
+            contentType: "application/x-www-form-urlencoded",
+            url,
+            data: {
+                name: $("#name").val(),
+                age: $("#age").val(),
+            },
+            success: (data) => {
+                if (data.status) {
+                    window.location.href = home + "?notification=createSuccess";
+                }
+            },
+            failure: (xhr) => {
+                console.log(xhr.status);
+            }
+        })
+    }
+
+    function updateRecord(personId) {
+        $.ajax({
+            type: "put",
+            contentType: "application/x-www-form-urlencoded",
+            url,
+            data: {
+                name: $("#" + personId + "-name").val(),
+                age: $("#" + personId + "-age").val(),
+                personId,
+            },
+            success: (data) => {
+                if (data.status) {
+                    window.location.href = home + "?notification=updateSuccess";
+                }
+            },
+            failure: (xhr) => {
+                console.log(xhr.status);
+            }
+        })
+    }
+
+    function deleteRecord (personId) {
+        $.ajax({
+            type: "delete",
+            contentType: "application/x-www-form-urlencoded",
+            url,
+            data: {
+                personId,
+            },
+            success: (data) => {
+                if (data.status) {
+                    window.location.href = home + "?notification=deleteSuccess";
+                }
+            },
+            failure: (xhr) => {
+                console.log(xhr.status);
+            }
+        })
+    }
+</script>
